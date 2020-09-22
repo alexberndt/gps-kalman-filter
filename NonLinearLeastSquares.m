@@ -38,7 +38,7 @@ est.P=zeros(4,N);
 
 
 for n=1:N
-    
+    gps_data;
     x=zeros(4,1);
     dx=inf(4,1);
     res=zeros(M,1);

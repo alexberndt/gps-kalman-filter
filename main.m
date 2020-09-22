@@ -24,10 +24,10 @@ clear
 load("data/GPSdata.mat");
 currentFolder = pwd;
 
-%% Part I
+%% Nonlinear Least Squares Algorithm
 
 % estimate car trajectory using NL least-squares algorithm
-est = NonLinearLeastSquares(gps_data, 2); %ref_data_struct.s2r);
+est = NonLinearLeastSquares(gps_data, ref_data_struct.s2r);
 
 x_h = est.x_h;
 P = est.P;
@@ -44,7 +44,8 @@ plot(x,y);
 grid on
 xlabel("x [m]");
 ylabel("y [m]");
-saveas(gcf1, "./plots/nl_estimator_traj_2D.svg");
+title("NL Estimator");
+saveas(gcf1, "./plots/nl_estimator_traj_2D.eps");
 tikzfilename = strcat(currentFolder,'/tikzfiles/nl_estimator_traj_2D.tex');
 cleanfigure; 
 matlab2tikz('filename',tikzfilename);
@@ -56,13 +57,51 @@ grid on
 xlabel("x [m]");
 ylabel("y [m]");
 zlabel("z [m]");
+title("NL Estimator");
 zlim([-100 100]);
 saveas(gcf2, "./plots/nl_estimator_traj_3D.eps");
 tikzfilename = strcat(currentFolder,'/tikzfiles/nl_estimator_traj_3D.tex');
 cleanfigure; 
 matlab2tikz('filename',tikzfilename);
 
-%% Part II
+%% Extended Kalman Filter
+
+est = ExtendedKalmanFilter(gps_data, ref_data_struct.s2r);
+
+x_h = est.x_h;
+P = est.P;
+
+% obtain coordinate values 
+x = x_h(1,:);
+y = x_h(2,:);
+z = x_h(3,:);
+a = x_h(4,:);
+
+% plot x-y 2D
+gcf1 = figure(3);
+plot(x,y);
+grid on
+xlabel("x [m]");
+ylabel("y [m]");
+title("EKF");
+saveas(gcf1, "./plots/ekf_traj_2D.eps");
+tikzfilename = strcat(currentFolder,'/tikzfiles/ekf_traj_2D.tex');
+cleanfigure; 
+matlab2tikz('filename',tikzfilename);
+
+% plot x-y-z 3D
+gcf2 = figure(4);
+plot3(x,y,z);
+grid on
+xlabel("x [m]");
+ylabel("y [m]");
+zlabel("z [m]");
+title("EKF");
+zlim([-100 100]);
+saveas(gcf2, "./plots/ekf_traj_3D.eps");
+tikzfilename = strcat(currentFolder,'/tikzfiles/ekf_traj_3D.tex');
+cleanfigure; 
+matlab2tikz('filename',tikzfilename);
 
 %% Part III
 
