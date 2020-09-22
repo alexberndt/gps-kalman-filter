@@ -1,2 +1,9 @@
 *.m~
 tmp/*
+*.aux
+*.fdb_latexmk
+*.flx
+*.log
+*.pdf
+*.synctex.gz
+*.fls
