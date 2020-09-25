@@ -55,12 +55,11 @@ xhat_k_km1 = zeros(7,1); % estimate vector
 xhat_k_km1(6) = ref_data.x_clk(1);
 xhat_k_km1(7) = ref_data.x_clk(2);
 
-P_k = Inf; %0.001*ones(7,7); %blkdiag(0.0001*eye(5,5), 10*ones(2,2)); % INIT in loop
-% P_k(6,6) = 
+P_k = Inf;
 
 S_phi = PSD_clk(1);
 S_f = PSD_clk(2);
-Q_k_clk = [[(S_phi*Ts + S_f*(Ts^3)/3) (Ts^2*S_f)];
+Q_clk = [[(S_phi*Ts + S_f*(Ts^3)/3) (Ts^2*S_f)];
            [(Ts^2*S_f) (S_f*Ts)]];
 
 % MEASUREMENT COVARIANCE MATRIX
@@ -70,15 +69,14 @@ sigma2_x = 0.1;
 sigma2_y = sigma2_x;
 sigma2_z = sigma2_x;
 
-Q_k_x = sigma2_x;
-Q_k_y = sigma2_y;
-Q_k_z = sigma2_z;
+Q_x = sigma2_x;
+Q_y = sigma2_y;
+Q_z = sigma2_z;
 
-Q_k = blkdiag(Q_k_x,Q_k_y,Q_k_z,Q_k_clk);
+Q = blkdiag(Q_x,Q_y,Q_z,Q_clk);
 
 
 %% Model Equations 16-17
-
 
 S_x = 0.1e1; % TODO: update the 
 S_y = S_x;%1.0e-10;
@@ -86,16 +84,16 @@ S_z = 1.0e-5;
 Qtilde_2 = [[(Ts^4)/3 (Ts^3)/2];
             [(Ts^3)/2 Ts^2]];
 
-Q_k_x = S_x/Ts*Qtilde_2;
-Q_k_y = S_y/Ts*Qtilde_2;
-Q_k_z = S_z/Ts;
+Q_x = S_x/Ts*Qtilde_2;
+Q_y = S_y/Ts*Qtilde_2;
+Q_z = S_z/Ts;
  
 S_phi = PSD_clk(1);
 S_f = PSD_clk(2);
-Q_k_clk = [[(S_phi*Ts + S_f*(Ts^3)/3) (Ts^2*S_f)];
+Q_clk = [[(S_phi*Ts + S_f*(Ts^3)/3) (Ts^2*S_f)];
            [(Ts^2*S_f) (S_f*Ts)]];
 
-Q_k = blkdiag(Q_k_x,Q_k_y,Q_k_z,Q_k_clk);
+Q = blkdiag(Q_x,Q_y,Q_z,Q_clk);
 
 %%
 
@@ -152,24 +150,22 @@ for n=1:N
     idxs = find(satellite_avail);
     
     H_sub               = H(idxs,:);
-    R_k_sub             = R_k(idxs,idxs);
+    R_sub             = R_k(idxs,idxs);
     y_i_vec_sub         = y_i_vec(idxs);
     h_nonlinear_sub     = h_nonlinear(idxs);
     
-    e_k = y_i_vec_sub - h_nonlinear_sub; % MISTAKE H_sub*xhat_k_km1;
+    % use the NL function for the innovation!
+    e_k = y_i_vec_sub - h_nonlinear_sub; 
     
     if P_k == Inf
         disp("P_k is Inf - solving DARE");
-        [P_k,~,~] = idare(F',H_sub',Q_k,R_k_sub,[],[]);
+        [P_k,~,~] = idare(F',H_sub',Q,R_sub,[],[]);
     end
     
-    R_ek = H_sub*P_k*H_sub' + R_k_sub;
-    
-    % disp("evaluating K_K")
+    R_ek = H_sub*P_k*H_sub' + R_sub;
     K_k = F*P_k*H_sub'/R_ek;
-    % disp("after K_K")
     
-    P_kp1 = F*P_k*F' + Q_k - K_k*R_ek*K_k'; %G*Q_k*G'
+    P_kp1 = F*P_k*F' + Q - K_k*R_ek*K_k'; %G*Q_k*G'
     xhat_kp1_k = F*xhat_k_km1 + K_k*e_k;
 
     % update time-index for next step
