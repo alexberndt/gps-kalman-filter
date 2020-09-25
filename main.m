@@ -109,96 +109,101 @@ tikzfilename = strcat(currentFolder,'/tikzfiles/ekf_traj_2D.tex');
 cleanfigure; 
 matlab2tikz('filename',tikzfilename);
 
-% plot x-y-z 3D
-gcf4 = figure(4);
-clf;
-plot3(x,y,z);
-grid on
-xlabel("x [m]");
-ylabel("y [m]");
-zlabel("z [m]");
-title("EKF - 3D");
-hold on
-plot3(x_t,y_t,z_t,'r-.');
-zlim([-100 100]);
-saveas(gcf4, "./plots/ekf_traj_3D.eps");
-tikzfilename = strcat(currentFolder,'/tikzfiles/ekf_traj_3D.tex');
-cleanfigure; 
-matlab2tikz('filename',tikzfilename);
+plot_extra = true;
 
-% plot errors
-t_range = 500; % plot only time-steps 0 to 500 
+if plot_extra
 
-gcf3 = figure(3);
-clf;
+    % plot x-y-z 3D
+    gcf4 = figure(4);
+    clf;
+    plot3(x,y,z);
+    grid on
+    xlabel("x [m]");
+    ylabel("y [m]");
+    zlabel("z [m]");
+    title("EKF - 3D");
+    hold on
+    plot3(x_t,y_t,z_t,'r-.');
+    zlim([-100 100]);
+    saveas(gcf4, "./plots/ekf_traj_3D.eps");
+    tikzfilename = strcat(currentFolder,'/tikzfiles/ekf_traj_3D.tex');
+    cleanfigure; 
+    matlab2tikz('filename',tikzfilename);
 
-subplot(3,1,1);
-stairs(x(1:t_range));
-hold on
-grid on
-plot(x_t(1:t_range));
-xlabel("k");
-ylabel("x [m]");
-legend("EKF","true");
+    % plot errors
+    t_range = 500; % plot only time-steps 0 to 500 
 
-subplot(3,1,2);
-stairs(y(1:t_range));
-hold on
-grid on
-plot(y_t(1:t_range));
-xlabel("k");
-ylabel("y [m]");
-legend("EKF","true");
+    gcf5 = figure(5);
+    clf;
 
-subplot(3,1,3);
-stairs(z(1:t_range));
-hold on
-grid on
-plot(z_t(1:t_range));
-xlabel("k");
-ylabel("z [m]");
-legend("EKF","true");
+    subplot(3,1,1);
+    stairs(x(1:t_range));
+    hold on
+    grid on
+    plot(x_t(1:t_range));
+    xlabel("k");
+    ylabel("x [m]");
+    legend("EKF","true");
 
-%% Plot the covariance matrix entries
+    subplot(3,1,2);
+    stairs(y(1:t_range));
+    hold on
+    grid on
+    plot(y_t(1:t_range));
+    xlabel("k");
+    ylabel("y [m]");
+    legend("EKF","true");
 
-gcf3 = figure(3);
-clf;
+    subplot(3,1,3);
+    stairs(z(1:t_range));
+    hold on
+    grid on
+    plot(z_t(1:t_range));
+    xlabel("k");
+    ylabel("z [m]");
+    legend("EKF","true");
 
-subplot(3,1,1);
-stairs(reshape(est.P(1,1,1:t_range),[],1));
-grid on
-xlabel("k");
-ylabel("P(1,1) - x");
+    %% Plot the covariance matrix entries
 
-subplot(3,1,2);
-stairs(reshape(est.P(3,3,1:t_range),[],1));
-grid on
-xlabel("k");
-ylabel("P(3,3) - y");
+    gcf6 = figure(6);
+    clf;
 
-subplot(3,1,3);
-stairs(reshape(est.P(5,5,1:t_range),[],1));
-grid on
-xlabel("k");
-ylabel("P(5,5) - z");
+    subplot(3,1,1);
+    stairs(reshape(est.P(1,1,1:t_range),[],1));
+    grid on
+    xlabel("k");
+    ylabel("P(1,1) - x");
 
-% subplot(3,1,2);
-% stairs(y(1:t_range));
-% hold on
-% grid on
-% plot(y_t(1:t_range));
-% xlabel("k");
-% ylabel("y [m]");
-% legend("EKF","true");
-% 
-% subplot(3,1,3);
-% stairs(z(1:t_range));
-% hold on
-% grid on
-% plot(z_t(1:t_range));
-% xlabel("k");
-% ylabel("z [m]");
-% legend("EKF","true");
+    subplot(3,1,2);
+    stairs(reshape(est.P(3,3,1:t_range),[],1));
+    grid on
+    xlabel("k");
+    ylabel("P(3,3) - y");
+
+    subplot(3,1,3);
+    stairs(reshape(est.P(5,5,1:t_range),[],1));
+    grid on
+    xlabel("k");
+    ylabel("P(5,5) - z");
+
+    % subplot(3,1,2);
+    % stairs(y(1:t_range));
+    % hold on
+    % grid on
+    % plot(y_t(1:t_range));
+    % xlabel("k");
+    % ylabel("y [m]");
+    % legend("EKF","true");
+    % 
+    % subplot(3,1,3);
+    % stairs(z(1:t_range));
+    % hold on
+    % grid on
+    % plot(z_t(1:t_range));
+    % xlabel("k");
+    % ylabel("z [m]");
+    % legend("EKF","true");
+end
 
 
 

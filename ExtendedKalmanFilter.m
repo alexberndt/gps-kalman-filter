@@ -80,7 +80,7 @@ Q = blkdiag(Q_x,Q_y,Q_z,Q_clk);
 
 S_x = 0.1e1; % TODO: update the 
 S_y = S_x;%1.0e-10;
-S_z = 1.0e-5;
+S_z = S_x;
 Qtilde_2 = [[(Ts^4)/3 (Ts^3)/2];
             [(Ts^3)/2 Ts^2]];
 
@@ -150,7 +150,7 @@ for n=1:N
     idxs = find(satellite_avail);
     
     H_sub               = H(idxs,:);
-    R_sub             = R_k(idxs,idxs);
+    R_sub               = R_k(idxs,idxs);
     y_i_vec_sub         = y_i_vec(idxs);
     h_nonlinear_sub     = h_nonlinear(idxs);
     
