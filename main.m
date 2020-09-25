@@ -82,13 +82,13 @@ P = est.P;
 
 % obtain coordinate values 
 x = x_h(1,:);
-y = x_h(2,:);
-z = x_h(3,:);
+y = x_h(3,:);
+z = x_h(5,:);
 a = x_h(4,:);
 
 % true trajectory
-x_t = ref_data_struct.traj_ned(1,1:10);
-y_t = ref_data_struct.traj_ned(2,1:10);
+x_t = ref_data_struct.traj_ned(1,:);
+y_t = ref_data_struct.traj_ned(2,:);
 z_t = ref_data_struct.traj_ned(3,:);
 
 % plot x-y 2D
