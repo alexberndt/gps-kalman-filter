@@ -55,7 +55,7 @@ xhat_k_km1 = zeros(7,1); % estimate vector
 xhat_k_km1(6) = ref_data.x_clk(1);
 xhat_k_km1(7) = ref_data.x_clk(2);
 
-P_k = 0.001*ones(7,7); %blkdiag(0.0001*eye(5,5), 10*ones(2,2)); % INIT in loop
+P_k = Inf; %0.001*ones(7,7); %blkdiag(0.0001*eye(5,5), 10*ones(2,2)); % INIT in loop
 % P_k(6,6) = 
 
 S_phi = PSD_clk(1);
@@ -146,7 +146,7 @@ for n=1:N
     K_k = F*P_k*H_sub'/R_ek;
     % disp("after K_K")
     
-    P_kp1 = F*P_k*F' + G*Q_k*G' - K_k*R_ek*K_k';
+    P_kp1 = F*P_k*F' + G*Q_k*G' - K_k*R_ek*K_k'; %G*Q_k*G'
     xhat_kp1_k = F*xhat_k_km1 + K_k*e_k;
 
     % update time-index for next step

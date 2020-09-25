@@ -68,6 +68,7 @@
 
 clc
 clear
+close
 
 load("data/GPSdata.mat");
 currentFolder = pwd;
@@ -93,6 +94,7 @@ z_t = ref_data_struct.traj_ned(3,:);
 
 % plot x-y 2D
 gcf1 = figure(3);
+clf;
 plot(x,y);
 grid on
 xlabel("x [m]");
