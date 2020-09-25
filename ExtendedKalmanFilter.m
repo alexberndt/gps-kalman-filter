@@ -76,6 +76,29 @@ Q_k_z = sigma2_z;
 
 Q_k = blkdiag(Q_k_x,Q_k_y,Q_k_z,Q_k_clk);
 
+
+%% Model Equations 16-17
+
+
+S_x = 0.1e1; % TODO: update the 
+S_y = S_x;%1.0e-10;
+S_z = 1.0e-5;
+Qtilde_2 = [[(Ts^4)/3 (Ts^3)/2];
+            [(Ts^3)/2 Ts^2]];
+
+Q_k_x = S_x/Ts*Qtilde_2;
+Q_k_y = S_y/Ts*Qtilde_2;
+Q_k_z = S_z/Ts;
+ 
+S_phi = PSD_clk(1);
+S_f = PSD_clk(2);
+Q_k_clk = [[(S_phi*Ts + S_f*(Ts^3)/3) (Ts^2*S_f)];
+           [(Ts^2*S_f) (S_f*Ts)]];
+
+Q_k = blkdiag(Q_k_x,Q_k_y,Q_k_z,Q_k_clk);
+
+%%
+
 for n=1:N
     
     % Get measurement from satellites    
@@ -137,7 +160,7 @@ for n=1:N
     
     if P_k == Inf
         disp("P_k is Inf - solving DARE");
-        [P_k,~,~] = idare(F',H_sub',G*Q_k*G',R_k_sub,[],[]);
+        [P_k,~,~] = idare(F',H_sub',Q_k,R_k_sub,[],[]);
     end
     
     R_ek = H_sub*P_k*H_sub' + R_k_sub;
@@ -146,7 +169,7 @@ for n=1:N
     K_k = F*P_k*H_sub'/R_ek;
     % disp("after K_K")
     
-    P_kp1 = F*P_k*F' + G*Q_k*G' - K_k*R_ek*K_k'; %G*Q_k*G'
+    P_kp1 = F*P_k*F' + Q_k - K_k*R_ek*K_k'; %G*Q_k*G'
     xhat_kp1_k = F*xhat_k_km1 + K_k*e_k;
 
     % update time-index for next step
