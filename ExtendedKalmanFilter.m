@@ -28,8 +28,6 @@ function est=ExtendedKalmanFilter(gps_data,ref_data)
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-
-
 N = length(gps_data(1).PseudoRange);        % length of data 
 M = length(gps_data);                       % number of satellites (=30)
 est.x_h = zeros(7,N);                       % estimate of states
@@ -45,10 +43,12 @@ F_y =   [1 Ts; 0 1];
 F_z =   [1]; 
 F_clk = [1 Ts; 0 1]; 
 
-
 F = blkdiag(F_x,F_y,F_z,F_clk);
 xhat_k_km1 = zeros(7,1); % estimate vector
-P_k = Inf; % 0.001*eye(7); % INIT in loop
+xhat_k_km1(6) = ref_data.x_clk(1);
+xhat_k_km1(7) = ref_data.x_clk(2);
+
+P_k = 0.001*zeros(7,7); % INIT in loop
 
 % MEASUREMENT COVARIANCE MATRIX
 R_k = s2r*eye(M);
