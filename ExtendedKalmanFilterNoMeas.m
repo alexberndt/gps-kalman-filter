@@ -1,4 +1,4 @@
-function est=ExtendedKalmanFilter(gps_data,ref_data)
+function est=ExtendedKalmanFilterNoMeas(gps_data,ref_data, n_min, n_max)
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
 % est=ExtendedKalmanFilter(gps_data,s2r)
@@ -143,19 +143,24 @@ for n=1:N
     
     %% Linear Kalman Filter Equations 
     
-    % use the NL function for the innovation!
-    e_k         =   y_i_vec_sub - h_nonlinear_sub; 
+    if n < n_min || n > n_max
+        % use the NL function for the innovation!
+        e_k         =   y_i_vec_sub - h_nonlinear_sub; 
+
+        if P_k == Inf
+            disp("P_k is Inf - solving DARE");
+            [P_k,~,~] = idare(F',H_sub',Q,R_sub,[],[]);
+        end
+
+        R_ek        = H_sub*P_k*H_sub' + R_sub;
+        K_k         = F*P_k*H_sub'/R_ek;
     
-    if P_k == Inf
-        disp("P_k is Inf - solving DARE");
-        [P_k,~,~] = idare(F',H_sub',Q,R_sub,[],[]);
+        P_kp1       = F*P_k*F' + Q - K_k*R_ek*K_k';
+        xhat_kp1_k  = F*xhat_k_km1 + K_k*e_k;
+    else
+        P_kp1       = F*P_k*F' + Q;
+        xhat_kp1_k  = F*xhat_k_km1;
     end
-    
-    R_ek        = H_sub*P_k*H_sub' + R_sub;
-    K_k         = F*P_k*H_sub'/R_ek;
-    
-    P_kp1       = F*P_k*F' + Q - K_k*R_ek*K_k';
-    xhat_kp1_k  = F*xhat_k_km1 + K_k*e_k;
     
     %% Set variables for next iteration
     xhat_k_km1      = xhat_kp1_k;
