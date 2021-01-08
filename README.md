@@ -1,2 +1,5 @@
-# FEM3200_project_GPS
-Optimal filter design for GPS receiver
+# GPS Kalman Filter
+
+Implementation of a MATLAB-based Kalman filter based on real GPS data using clock-offsets.
+
+
