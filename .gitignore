@@ -7,3 +7,8 @@ tmp/*
 *.pdf
 *.synctex.gz
 *.fls
+.claude
+.DS_Store
+.python-version
+plots/**
+__pycache__
