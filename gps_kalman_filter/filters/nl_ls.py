@@ -5,14 +5,11 @@ Calculates single point position solution from GPS pseudorange measurements
 using a nonlinear least squares approach.
 """
 
-from typing import TYPE_CHECKING
 import numpy as np
-
-if TYPE_CHECKING:
-    from .data_loader import GPSDataset
+from gps_kalman_filter.data.loader import GPSDataset
 
 
-def nonlinear_least_squares(dataset: 'GPSDataset') -> dict:
+def nonlinear_least_squares(dataset: "GPSDataset") -> dict:
     """
     Calculate GPS position using nonlinear least squares.
 
@@ -32,10 +29,7 @@ def nonlinear_least_squares(dataset: 'GPSDataset') -> dict:
     M = dataset.num_satellites
     s2r = dataset.measurement_params.range_variance
 
-    est = {
-        'x_h': np.zeros((4, N)),
-        'P': np.zeros((4, N))
-    }
+    est = {"x_h": np.zeros((4, N)), "P": np.zeros((4, N))}
 
     for n in range(N):
         x = np.zeros(4)
@@ -46,7 +40,6 @@ def nonlinear_least_squares(dataset: 'GPSDataset') -> dict:
 
         # Nonlinear least squares iteration
         while np.linalg.norm(dx) > 0.01 and itr_ctr < 10:
-
             for m in range(M):
                 sat = dataset.satellites[m]
                 if sat.is_available_at(n):
@@ -70,7 +63,7 @@ def nonlinear_least_squares(dataset: 'GPSDataset') -> dict:
             itr_ctr += 1
 
         # Store the estimate
-        est['x_h'][:, n] = x
-        est['P'][:, n] = s2r * np.diag(np.linalg.inv(H.T @ H))
+        est["x_h"][:, n] = x
+        est["P"][:, n] = s2r * np.diag(np.linalg.inv(H.T @ H))
 
     return est
