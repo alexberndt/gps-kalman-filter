@@ -12,3 +12,7 @@ tmp/*
 .python-version
 plots/**
 __pycache__
+.venv
+.ruff_cache
+.pytest_cache
+plots_*/**
