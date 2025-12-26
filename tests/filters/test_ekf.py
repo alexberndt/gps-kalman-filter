@@ -1,5 +1,5 @@
 import numpy as np
-from gps_kalman_filter.filters.ekf import extended_kalman_filter
+from gps.filters.ekf import extended_kalman_filter
 
 
 def test_ekf_output_structure(gps_dataset, small_sigma):

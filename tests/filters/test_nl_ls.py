@@ -1,5 +1,5 @@
 import numpy as np
-from gps_kalman_filter.filters.nl_ls import nonlinear_least_squares
+from gps.filters.nl_ls import nonlinear_least_squares
 
 
 def test_nls_output_structure(gps_dataset):
@@ -12,8 +12,12 @@ def test_nls_output_structure(gps_dataset):
 def test_nls_output_dimensions(gps_dataset):
     result = nonlinear_least_squares(gps_dataset)
 
-    assert result["x_h"].shape == (4, gps_dataset.num_timesteps), "State should be (4, N): [x, y, z, clock_offset]"
-    assert result["P"].shape == (4, gps_dataset.num_timesteps), "Covariance diagonal should be (4, N)"
+    assert result["x_h"].shape == (4, gps_dataset.num_timesteps), (
+        "State should be (4, N): [x, y, z, clock_offset]"
+    )
+    assert result["P"].shape == (4, gps_dataset.num_timesteps), (
+        "Covariance diagonal should be (4, N)"
+    )
 
 
 def test_nls_produces_valid_estimates(gps_dataset):

@@ -2,7 +2,7 @@
 
 import pytest
 from pathlib import Path
-from gps_kalman_filter.data.loader import load_gps_data
+from gps.data.loader import load_gps_data
 
 
 @pytest.fixture(scope="session")

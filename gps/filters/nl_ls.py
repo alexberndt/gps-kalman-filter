@@ -6,7 +6,7 @@ using a nonlinear least squares approach.
 """
 
 import numpy as np
-from gps_kalman_filter.data.loader import GPSDataset
+from gps.data.loader import GPSDataset
 
 
 def nonlinear_least_squares(dataset: "GPSDataset") -> dict:

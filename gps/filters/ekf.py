@@ -9,8 +9,8 @@ from dataclasses import dataclass
 from typing import List
 import numpy as np
 from scipy.linalg import solve_discrete_are, block_diag
-from gps_kalman_filter.utils.measurement_functions import h_prime_func
-from gps_kalman_filter.data.loader import GPSDataset
+from gps.utils.measurement_functions import h_prime_func
+from gps.data.loader import GPSDataset
 
 
 @dataclass
