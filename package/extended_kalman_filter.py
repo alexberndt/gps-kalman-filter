@@ -5,30 +5,248 @@ Calculates single point position solution from GPS pseudorange measurements
 using an Extended Kalman Filter approach.
 """
 
+from dataclasses import dataclass
+from typing import List, TYPE_CHECKING
 import numpy as np
 from scipy.linalg import solve_discrete_are, block_diag
-from .measurement_functions import h_func, h_prime_func
+from .measurement_functions import h_prime_func
+
+if TYPE_CHECKING:
+    from .data_loader import GPSDataset
 
 
-def extended_kalman_filter(gps_data, ref_data, sigma2_pos=0.1):
+@dataclass
+class State:
+    """GPS receiver state vector."""
+    x: float = 0.0
+    vx: float = 0.0
+    y: float = 0.0
+    vy: float = 0.0
+    z: float = 0.0
+    delta_t: float = 0.0
+    delta_t_dot: float = 0.0
+
+    def to_vector(self) -> np.ndarray:
+        """Convert state to numpy vector."""
+        return np.array([self.x, self.vx, self.y, self.vy, self.z, self.delta_t, self.delta_t_dot])
+
+    @classmethod
+    def from_vector(cls, vec: np.ndarray) -> 'State':
+        """Create state from numpy vector."""
+        return cls(
+            x=vec[0], vx=vec[1],
+            y=vec[2], vy=vec[3],
+            z=vec[4],
+            delta_t=vec[5], delta_t_dot=vec[6]
+        )
+
+
+@dataclass
+class Position3D:
+    """3D position vector."""
+    x: float
+    y: float
+    z: float
+
+    def to_vector(self) -> np.ndarray:
+        """Convert position to numpy vector."""
+        return np.array([self.x, self.y, self.z])
+
+    @classmethod
+    def from_vector(cls, vec: np.ndarray) -> 'Position3D':
+        """Create position from numpy vector."""
+        return cls(x=vec[0], y=vec[1], z=vec[2])
+
+
+@dataclass
+class ClockState:
+    """GPS receiver clock state."""
+    delta_t: float
+    delta_t_dot: float
+
+    def to_vector(self) -> np.ndarray:
+        """Convert clock state to numpy vector."""
+        return np.array([self.delta_t, self.delta_t_dot])
+
+
+@dataclass
+class ProcessNoise:
+    """Process noise covariance parameters."""
+    sigma2_x: float
+    sigma2_y: float
+    sigma2_z: float
+    Q_clk: np.ndarray
+
+    def to_matrix(self) -> np.ndarray:
+        """Construct full process noise covariance matrix."""
+        return block_diag(self.sigma2_x, self.sigma2_y, self.sigma2_z, self.Q_clk)
+
+
+@dataclass
+class SystemMatrices:
+    """System dynamics matrices for Kalman filter."""
+    F: np.ndarray
+    G: np.ndarray
+    Q: np.ndarray
+
+    @classmethod
+    def create(cls, Ts: float, sigma2_pos: float, PSD_clk: np.ndarray) -> 'SystemMatrices':
+        """Create system matrices from parameters."""
+        # State transition matrix F
+        F_x = np.array([[1, Ts], [0, 1]])
+        F_y = np.array([[1, Ts], [0, 1]])
+        F_z = np.array([[1]])
+        F_clk = np.array([[1, Ts], [0, 1]])
+        F = block_diag(F_x, F_y, F_z, F_clk)
+
+        # Process noise input matrix G
+        G_x = np.array([[Ts**2 / 2], [Ts]])
+        G_y = np.array([[Ts**2 / 2], [Ts]])
+        G_z = np.array([[Ts]])
+        G = block_diag(G_x, G_y, G_z, np.eye(2))
+
+        # Clock process noise covariance
+        S_phi, S_f = PSD_clk[0], PSD_clk[1]
+        Q_clk = np.array([
+            [S_phi * Ts + S_f * (Ts**3) / 3, Ts**2 * S_f],
+            [Ts**2 * S_f, S_f * Ts]
+        ])
+
+        # Process noise
+        process_noise = ProcessNoise(
+            sigma2_x=sigma2_pos,
+            sigma2_y=sigma2_pos,
+            sigma2_z=sigma2_pos,
+            Q_clk=Q_clk
+        )
+        Q = process_noise.to_matrix()
+
+        return cls(F=F, G=G, Q=Q)
+
+
+@dataclass
+class SatelliteMeasurement:
+    """Single satellite measurement data."""
+    satellite_id: str
+    position: Position3D
+    pseudorange: float
+    available: bool
+
+    @classmethod
+    def from_satellite_timeseries(cls, satellite, time_idx: int) -> 'SatelliteMeasurement':
+        """Create measurement from SatelliteTimeSeries at specific time index."""
+        pseudorange = satellite.get_pseudorange_at(time_idx)
+        available = satellite.is_available_at(time_idx)
+
+        if available:
+            position = Position3D.from_vector(satellite.get_position_at(time_idx))
+        else:
+            position = Position3D(0, 0, 0)
+            pseudorange = 0.0
+
+        return cls(
+            satellite_id=satellite.satellite_id,
+            position=position,
+            pseudorange=pseudorange,
+            available=available
+        )
+
+
+@dataclass
+class LinearizedMeasurement:
+    """Linearized measurement equation components."""
+    y_tilde: float
+    H_row: np.ndarray
+    y_actual: float
+    h_nonlinear: float
+
+    @classmethod
+    def compute(cls, measurement: SatelliteMeasurement, state: State, speed_of_light: float) -> 'LinearizedMeasurement':
+        """Compute linearized measurement from satellite data."""
+        if not measurement.available:
+            return cls(
+                y_tilde=0.0,
+                H_row=np.zeros(7),
+                y_actual=0.0,
+                h_nonlinear=0.0
+            )
+
+        state_vec = state.to_vector()
+        p_i = measurement.position.to_vector()
+
+        # Compute partial derivatives
+        h_prime = np.array([
+            h_prime_func(p_i, state_vec, "x"),
+            0,
+            h_prime_func(p_i, state_vec, "y"),
+            0,
+            h_prime_func(p_i, state_vec, "z"),
+            speed_of_light,
+            0
+        ])
+
+        # Nonlinear measurement function (h_func internally computes distance + c*delta_t)
+        x_rec = state_vec[0]
+        y_rec = state_vec[2]
+        z_rec = state_vec[4]
+        delta_t = state_vec[5]
+
+        x_i, y_i, z_i = p_i[0], p_i[1], p_i[2]
+        h_nonlinear = np.sqrt((x_i - x_rec)**2 + (y_i - y_rec)**2 + (z_i - z_rec)**2) + speed_of_light * delta_t
+
+        # Linearized measurement
+        y_tilde = measurement.pseudorange - h_nonlinear + h_prime @ state_vec
+
+        return cls(
+            y_tilde=y_tilde,
+            H_row=h_prime,
+            y_actual=measurement.pseudorange,
+            h_nonlinear=h_nonlinear
+        )
+
+
+@dataclass
+class MeasurementBatch:
+    """Batch of measurements from all satellites at one time step."""
+    measurements: List[SatelliteMeasurement]
+    linearized: List[LinearizedMeasurement]
+
+    def get_available_indices(self) -> np.ndarray:
+        """Get indices of available satellite measurements."""
+        return np.array([i for i, m in enumerate(self.measurements) if m.available])
+
+    def build_measurement_matrices(self) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+        """Build H, y, and h_nonlinear vectors for available measurements."""
+        idxs = self.get_available_indices()
+
+        H_sub = np.array([self.linearized[i].H_row for i in idxs])
+        y_vec_sub = np.array([self.linearized[i].y_actual for i in idxs])
+        h_nonlinear_sub = np.array([self.linearized[i].h_nonlinear for i in idxs])
+
+        return H_sub, y_vec_sub, h_nonlinear_sub, idxs
+
+
+@dataclass
+class FilterState:
+    """Complete Kalman filter state."""
+    state: State
+    P: np.ndarray
+
+    @classmethod
+    def initialize(cls, initial_clock: ClockState) -> 'FilterState':
+        """Initialize filter state with clock bias."""
+        state = State(delta_t=initial_clock.delta_t, delta_t_dot=initial_clock.delta_t_dot)
+        return cls(state=state, P=None)
+
+
+def extended_kalman_filter(dataset: 'GPSDataset', sigma2_pos: float = 0.1) -> dict:
     """
     Calculate GPS position using Extended Kalman Filter.
 
     Parameters
     ----------
-    gps_data : list of dict
-        List of M satellite data dictionaries, each containing:
-        - 'Satellite': Name of satellite
-        - 'Satellite_Position_NED': ndarray of shape (3, N) with satellite positions
-        - 'PseudoRange': ndarray of shape (N,) with pseudorange measurements
-    ref_data : dict
-        Reference data dictionary containing:
-        - 's2r': Variance of range measurement error
-        - 'PSD_clk': Power spectral density of clock [S_phi, S_f]
-        - 'Ts': Sample time
-        - 'c': Speed of light
-        - 'x_clk': Initial clock state [delta_t, delta_t_dot]
-        - 'traj_ned': True trajectory (optional, for comparison)
+    dataset : GPSDataset
+        GPS dataset containing satellite measurements, clock parameters, and measurement parameters
     sigma2_pos : float, optional
         Process noise variance for position states (x, y, z).
         Default: 0.1
@@ -42,143 +260,84 @@ def extended_kalman_filter(gps_data, ref_data, sigma2_pos=0.1):
         - 'x_h': ndarray of shape (7, N) with estimated state [x, vx, y, vy, z, delta_t, delta_t_dot]
         - 'P': ndarray of shape (7, 7, N) with covariance matrices
     """
-    N = len(gps_data[0]['PseudoRange'])  # length of data
-    M = len(gps_data)  # number of satellites (=30)
+    N = dataset.num_timesteps
+    M = dataset.num_satellites
 
-    est = {
-        'x_h': np.zeros((7, N)),
-        'P': np.zeros((7, 7, N))
-    }
+    # Initialize system matrices
+    system = SystemMatrices.create(
+        Ts=dataset.measurement_params.sample_time,
+        sigma2_pos=sigma2_pos,
+        PSD_clk=dataset.clock_params.to_psd_array()
+    )
 
-    # Get data from ref_data
-    s2r = ref_data['s2r']
-    PSD_clk = ref_data['PSD_clk']
-    Ts = ref_data['Ts']
-
-    # State transition matrix F
-    F_x = np.array([[1, Ts], [0, 1]])
-    F_y = np.array([[1, Ts], [0, 1]])
-    F_z = np.array([[1]])
-    F_clk = np.array([[1, Ts], [0, 1]])
-
-    F = block_diag(F_x, F_y, F_z, F_clk)
-
-    # Process noise input matrix G
-    G_x = np.array([[Ts**2 / 2], [Ts]])
-    G_y = np.array([[Ts**2 / 2], [Ts]])
-    G_z = np.array([[Ts]])
-
-    G = block_diag(G_x, G_y, G_z, np.eye(2))
-
-    # Initial state estimate
-    xhat_k_km1 = np.zeros(7)
-    xhat_k_km1[5] = ref_data['x_clk'][0]
-    xhat_k_km1[6] = ref_data['x_clk'][1]
-
-    # Initial covariance (will be initialized via DARE)
-    P_k = None
-
-    # Clock process noise covariance
-    S_phi = PSD_clk[0]
-    S_f = PSD_clk[1]
-    Q_k_clk = np.array([
-        [S_phi * Ts + S_f * (Ts**3) / 3, Ts**2 * S_f],
-        [Ts**2 * S_f, S_f * Ts]
-    ])
+    # Initialize filter state
+    initial_clock = ClockState(
+        delta_t=dataset.clock_params.initial_bias,
+        delta_t_dot=dataset.clock_params.initial_drift
+    )
+    filter_state = FilterState.initialize(initial_clock)
 
     # Measurement covariance matrix
-    R_k = s2r * np.eye(M)
+    R_k = dataset.measurement_params.range_variance * np.eye(M)
 
-    # Position process noise variances
-    sigma2_x = sigma2_pos
-    sigma2_y = sigma2_pos
-    sigma2_z = sigma2_pos
-
-    Q_k_x = sigma2_x
-    Q_k_y = sigma2_y
-    Q_k_z = sigma2_z
-
-    Q_k = block_diag(Q_k_x, Q_k_y, Q_k_z, Q_k_clk)
+    # Storage for estimates
+    est = {"x_h": np.zeros((7, N)), "P": np.zeros((7, 7, N))}
 
     for n in range(N):
+        # Collect satellite measurements
+        measurements = [
+            SatelliteMeasurement.from_satellite_timeseries(sat, n)
+            for sat in dataset.satellites
+        ]
 
-        # Get measurement from satellites
-        y_i_tilde_vec = np.zeros(M)
-        y_i_vec = np.zeros(M)
-        h_nonlinear = np.zeros(M)
-        H = np.zeros((M, 7))
+        # Linearize measurements
+        linearized = [
+            LinearizedMeasurement.compute(meas, filter_state.state, dataset.measurement_params.speed_of_light)
+            for meas in measurements
+        ]
 
-        satellite_avail = np.zeros(M, dtype=bool)
+        # Create measurement batch
+        batch = MeasurementBatch(measurements=measurements, linearized=linearized)
 
-        for i in range(M):
-            # Check if satellite measurement i is available (is NOT NAN)
-            if not np.isnan(gps_data[i]['PseudoRange'][n]):
+        # Build measurement matrices for available satellites
+        H_sub, y_vec_sub, h_nonlinear_sub, idxs = batch.build_measurement_matrices()
 
-                satellite_avail[i] = True
+        # Innovation (measurement residual)
+        e_k = y_vec_sub - h_nonlinear_sub
 
-                # Position (x, y, z) of satellite i
-                p_i = gps_data[i]['Satellite_Position_NED'][:, n]
-
-                # Partial derivative elements of h'(x)
-                h_p_1 = h_prime_func(p_i, xhat_k_km1, 'x')
-                h_p_2 = 0
-                h_p_3 = h_prime_func(p_i, xhat_k_km1, 'y')
-                h_p_4 = 0
-                h_p_5 = h_prime_func(p_i, xhat_k_km1, 'z')
-                h_p_6 = ref_data['c']
-                h_p_7 = 0
-
-                # Partial derivative vector h'(x) evaluated at xhat_k_km1
-                h_prime = np.array([h_p_1, h_p_2, h_p_3, h_p_4, h_p_5, h_p_6, h_p_7])
-
-                # Measurement from satellite
-                y_i = gps_data[i]['PseudoRange'][n]
-
-                # LHS of linearization y^i - h(xh) + h'(xh)xh
-                # where xh = \hat{x}
-                y_i_tilde = y_i - h_func(p_i, xhat_k_km1, ref_data) + h_prime @ xhat_k_km1
-
-                h_nonlinear[i] = h_func(p_i, xhat_k_km1, ref_data)
-
-                y_i_vec[i] = y_i
-                y_i_tilde_vec[i] = y_i_tilde
-                H[i, :] = h_prime
-            else:
-                y_i_tilde_vec[i] = 0
-                H[i, :] = np.zeros(7)
-
-        # LINEAR KF
-        idxs = np.where(satellite_avail)[0]
-
-        H_sub = H[idxs, :]
+        # Extract measurement covariance for available satellites
         R_k_sub = R_k[np.ix_(idxs, idxs)]
-        y_i_vec_sub = y_i_vec[idxs]
-        h_nonlinear_sub = h_nonlinear[idxs]
 
-        e_k = y_i_vec_sub - h_nonlinear_sub
-
-        # Initialize P_k using DARE if not yet initialized
-        if P_k is None:
+        # Initialize P using DARE if not yet initialized
+        if filter_state.P is None:
             print("P_k is None - solving DARE")
-            P_k = solve_discrete_are(F.T, H_sub.T, G @ Q_k @ G.T, R_k_sub)
+            filter_state.P = solve_discrete_are(
+                system.F.T, H_sub.T,
+                system.G @ system.Q @ system.G.T,
+                R_k_sub
+            )
 
-        R_ek = H_sub @ P_k @ H_sub.T + R_k_sub
+        # Innovation covariance
+        R_ek = H_sub @ filter_state.P @ H_sub.T + R_k_sub
 
         # Kalman gain
-        K_k = F @ P_k @ H_sub.T @ np.linalg.inv(R_ek)
+        K_k = system.F @ filter_state.P @ H_sub.T @ np.linalg.inv(R_ek)
 
         # Covariance update
-        P_kp1 = F @ P_k @ F.T + G @ Q_k @ G.T - K_k @ R_ek @ K_k.T
+        P_kp1 = (system.F @ filter_state.P @ system.F.T +
+                 system.G @ system.Q @ system.G.T -
+                 K_k @ R_ek @ K_k.T)
 
         # State update
-        xhat_kp1_k = F @ xhat_k_km1 + K_k @ e_k
+        state_vec = filter_state.state.to_vector()
+        xhat_kp1_k = system.F @ state_vec + K_k @ e_k
 
-        # Update time-index for next step
-        xhat_k_km1 = xhat_kp1_k
-        P_k = P_kp1
+        # Update filter state for next iteration
+        filter_state.state = State.from_vector(xhat_kp1_k)
+        filter_state.P = P_kp1
 
         # Store the estimate
-        est['x_h'][:, n] = xhat_kp1_k
-        est['P'][:, :, n] = P_kp1
+        est["x_h"][:, n] = xhat_kp1_k
+        est["P"][:, :, n] = P_kp1
 
     return est

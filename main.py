@@ -29,14 +29,14 @@ def main():
     current_folder = Path(__file__).parent
     data_path = current_folder / "data" / "GPSdata.mat"
 
-    gps_data, ref_data_struct = load_gps_data(str(data_path))
-    print(f"Loaded data with {len(gps_data)} satellites and {len(gps_data[0]['PseudoRange'])} time steps")
+    dataset = load_gps_data(str(data_path))
+    print(f"Loaded data with {dataset.num_satellites} satellites and {dataset.num_timesteps} time steps")
 
     # ========================================================================
     # Nonlinear Least Squares Algorithm
     # ========================================================================
     print("\nRunning Nonlinear Least Squares estimator...")
-    est_nls = nonlinear_least_squares(gps_data, ref_data_struct['s2r'])
+    est_nls = nonlinear_least_squares(dataset)
     x_h_nls = est_nls['x_h']
 
     x_nls = x_h_nls[0, :]
@@ -44,9 +44,9 @@ def main():
     z_nls = x_h_nls[2, :]
 
     # True trajectory
-    x_t = ref_data_struct['traj_ned'][0, :]
-    y_t = ref_data_struct['traj_ned'][1, :]
-    z_t = ref_data_struct['traj_ned'][2, :]
+    x_t = dataset.ground_truth.trajectory_ned[0, :]
+    y_t = dataset.ground_truth.trajectory_ned[1, :]
+    z_t = dataset.ground_truth.trajectory_ned[2, :]
 
     # Create plots directory
     plots_dir = current_folder / "plots"
@@ -91,7 +91,7 @@ def main():
     #   - Optimal for this dataset: 5.0 (gives ~3.5m RMS error vs 10m with 0.1)
     sigma2_pos = 5.0  # Tuned value - run tune_ekf.py to experiment with different values
 
-    est = extended_kalman_filter(gps_data, ref_data_struct, sigma2_pos=sigma2_pos)
+    est = extended_kalman_filter(dataset, sigma2_pos=sigma2_pos)
     print(f"EKF sigma2_pos: {sigma2_pos}")
 
     x_h = est['x_h']

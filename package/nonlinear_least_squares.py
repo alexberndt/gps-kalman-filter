@@ -5,22 +5,21 @@ Calculates single point position solution from GPS pseudorange measurements
 using a nonlinear least squares approach.
 """
 
+from typing import TYPE_CHECKING
 import numpy as np
 
+if TYPE_CHECKING:
+    from .data_loader import GPSDataset
 
-def nonlinear_least_squares(gps_data, s2r):
+
+def nonlinear_least_squares(dataset: 'GPSDataset') -> dict:
     """
     Calculate GPS position using nonlinear least squares.
 
     Parameters
     ----------
-    gps_data : list of dict
-        List of M satellite data dictionaries, each containing:
-        - 'Satellite': Name of satellite
-        - 'Satellite_Position_NED': ndarray of shape (3, N) with satellite positions
-        - 'PseudoRange': ndarray of shape (N,) with pseudorange measurements
-    s2r : float
-        Variance of range measurement error
+    dataset : GPSDataset
+        GPS dataset containing satellite measurements and measurement parameters
 
     Returns
     -------
@@ -29,8 +28,9 @@ def nonlinear_least_squares(gps_data, s2r):
         - 'x_h': ndarray of shape (4, N) with estimated [x, y, z, clock_offset] for each time
         - 'P': ndarray of shape (4, N) with diagonal elements of covariance matrix
     """
-    N = len(gps_data[0]['PseudoRange'])  # length of data
-    M = len(gps_data)  # number of satellites (=30)
+    N = dataset.num_timesteps
+    M = dataset.num_satellites
+    s2r = dataset.measurement_params.range_variance
 
     est = {
         'x_h': np.zeros((4, N)),
@@ -48,9 +48,12 @@ def nonlinear_least_squares(gps_data, s2r):
         while np.linalg.norm(dx) > 0.01 and itr_ctr < 10:
 
             for m in range(M):
-                if not np.isnan(gps_data[m]['PseudoRange'][n]):
-                    dR_h = gps_data[m]['Satellite_Position_NED'][:, n] - x[0:3]
-                    res[m] = gps_data[m]['PseudoRange'][n] - (np.linalg.norm(dR_h) + x[3])
+                sat = dataset.satellites[m]
+                if sat.is_available_at(n):
+                    sat_pos = sat.get_position_at(n)
+                    pseudorange = sat.get_pseudorange_at(n)
+                    dR_h = sat_pos - x[0:3]
+                    res[m] = pseudorange - (np.linalg.norm(dR_h) + x[3])
                     H[m, 0:3] = -dR_h / np.linalg.norm(dR_h)
                     H[m, 3] = 1
                 else:

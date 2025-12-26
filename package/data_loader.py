@@ -1,7 +1,113 @@
+from dataclasses import dataclass
+from typing import List, Optional
+import numpy as np
 from scipy.io import loadmat
 
 
-def load_gps_data(mat_file_path):
+@dataclass
+class SatelliteTimeSeries:
+    """Time series data for a single satellite."""
+    satellite_id: str
+    positions_ned: np.ndarray  # Shape (3, N): satellite positions over time in NED coordinates
+    pseudoranges: np.ndarray   # Shape (N,): pseudorange measurements over time
+
+    @property
+    def num_timesteps(self) -> int:
+        """Number of time steps in the series."""
+        return len(self.pseudoranges)
+
+    def get_position_at(self, time_idx: int) -> np.ndarray:
+        """Get satellite position at specific time index."""
+        return self.positions_ned[:, time_idx]
+
+    def get_pseudorange_at(self, time_idx: int) -> float:
+        """Get pseudorange at specific time index."""
+        return self.pseudoranges[time_idx]
+
+    def is_available_at(self, time_idx: int) -> bool:
+        """Check if measurement is available (not NaN) at time index."""
+        return not np.isnan(self.pseudoranges[time_idx])
+
+
+@dataclass
+class ClockParameters:
+    """GPS receiver clock parameters."""
+    initial_bias: float          # Initial clock bias (delta_t)
+    initial_drift: float         # Initial clock drift rate (delta_t_dot)
+    psd_phase: float             # Power spectral density of phase noise (S_phi)
+    psd_frequency: float         # Power spectral density of frequency noise (S_f)
+
+    @classmethod
+    def from_arrays(cls, x_clk: np.ndarray, PSD_clk: np.ndarray) -> 'ClockParameters':
+        """Create from raw arrays."""
+        return cls(
+            initial_bias=float(x_clk[0]),
+            initial_drift=float(x_clk[1]),
+            psd_phase=float(PSD_clk[0]),
+            psd_frequency=float(PSD_clk[1])
+        )
+
+    def to_psd_array(self) -> np.ndarray:
+        """Convert PSD parameters to array format."""
+        return np.array([self.psd_phase, self.psd_frequency])
+
+    def to_initial_state_array(self) -> np.ndarray:
+        """Convert initial state to array format."""
+        return np.array([self.initial_bias, self.initial_drift])
+
+
+@dataclass
+class MeasurementParameters:
+    """Measurement noise and system parameters."""
+    range_variance: float        # Variance of range measurement error (s2r)
+    sample_time: float          # Sample time interval (Ts)
+    speed_of_light: float       # Speed of light (c)
+
+    @classmethod
+    def from_dict(cls, ref_data: dict) -> 'MeasurementParameters':
+        """Create from reference data dictionary."""
+        return cls(
+            range_variance=float(ref_data['s2r']),
+            sample_time=float(ref_data['Ts']),
+            speed_of_light=float(ref_data['c'])
+        )
+
+
+@dataclass
+class GroundTruth:
+    """Ground truth trajectory data."""
+    trajectory_ned: np.ndarray  # Shape (3, N): true trajectory in NED coordinates
+
+    @property
+    def num_timesteps(self) -> int:
+        """Number of time steps."""
+        return self.trajectory_ned.shape[1]
+
+    def get_position_at(self, time_idx: int) -> np.ndarray:
+        """Get true position at specific time index."""
+        return self.trajectory_ned[:, time_idx]
+
+
+@dataclass
+class GPSDataset:
+    """Complete GPS dataset with all satellite and reference data."""
+    satellites: List[SatelliteTimeSeries]
+    clock_params: ClockParameters
+    measurement_params: MeasurementParameters
+    ground_truth: Optional[GroundTruth] = None
+
+    @property
+    def num_satellites(self) -> int:
+        """Number of satellites in the dataset."""
+        return len(self.satellites)
+
+    @property
+    def num_timesteps(self) -> int:
+        """Number of time steps in the dataset."""
+        return self.satellites[0].num_timesteps if self.satellites else 0
+
+
+def load_gps_data(mat_file_path) -> GPSDataset:
     """
     Load GPS data from MATLAB .mat file.
 
@@ -12,37 +118,51 @@ def load_gps_data(mat_file_path):
 
     Returns
     -------
-    tuple
-        (gps_data, ref_data_struct) where:
-        - gps_data is a list of M dictionaries with satellite data
-        - ref_data_struct is a dictionary with reference data
+    GPSDataset
+        Structured GPS dataset object
     """
     mat_data = loadmat(mat_file_path)
 
     # Extract GPS data
-    # In MATLAB, gps_data is a structured array of size (1, M)
     gps_data_mat = mat_data["gps_data"]
 
-    # Convert to list of dictionaries
-    gps_data = []
+    # Convert to structured satellite data
+    satellites = []
     for i in range(gps_data_mat.shape[1]):
-        satellite_data = {
-            "Satellite": gps_data_mat[0, i]["Satellite"][0],
-            "Satellite_Position_NED": gps_data_mat[0, i]["Satellite_Position_NED"],
-            "PseudoRange": gps_data_mat[0, i]["PseudoRange"].flatten(),
-        }
-        gps_data.append(satellite_data)
+        satellite = SatelliteTimeSeries(
+            satellite_id=gps_data_mat[0, i]["Satellite"][0],
+            positions_ned=gps_data_mat[0, i]["Satellite_Position_NED"],
+            pseudoranges=gps_data_mat[0, i]["PseudoRange"].flatten(),
+        )
+        satellites.append(satellite)
 
     # Extract reference data
     ref_data_mat = mat_data["ref_data_struct"]
 
-    ref_data_struct = {
-        "s2r": float(ref_data_mat["s2r"][0, 0][0, 0]),
-        "PSD_clk": ref_data_mat["PSD_clk"][0, 0].flatten(),
-        "Ts": float(ref_data_mat["Ts"][0, 0][0, 0]),
-        "c": float(ref_data_mat["c"][0, 0][0, 0]),
-        "x_clk": ref_data_mat["x_clk"][0, 0][:, 0],
-        "traj_ned": ref_data_mat["traj_ned"][0, 0],
-    }
+    # Create measurement parameters
+    measurement_params = MeasurementParameters(
+        range_variance=float(ref_data_mat["s2r"][0, 0][0, 0]),
+        sample_time=float(ref_data_mat["Ts"][0, 0][0, 0]),
+        speed_of_light=float(ref_data_mat["c"][0, 0][0, 0])
+    )
 
-    return gps_data, ref_data_struct
+    # Create clock parameters
+    clock_params = ClockParameters.from_arrays(
+        x_clk=ref_data_mat["x_clk"][0, 0][:, 0],
+        PSD_clk=ref_data_mat["PSD_clk"][0, 0].flatten()
+    )
+
+    # Create ground truth if available
+    ground_truth = GroundTruth(
+        trajectory_ned=ref_data_mat["traj_ned"][0, 0]
+    )
+
+    # Create dataset
+    dataset = GPSDataset(
+        satellites=satellites,
+        clock_params=clock_params,
+        measurement_params=measurement_params,
+        ground_truth=ground_truth
+    )
+
+    return dataset
