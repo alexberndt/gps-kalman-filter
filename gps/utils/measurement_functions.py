@@ -37,7 +37,7 @@ def h_func(p_i, xhat_k_km1, ref_data):
     y_i = p_i[1]
     z_i = p_i[2]
 
-    val = np.sqrt((x_i - x_rec)**2 + (y_i - y_rec)**2 + (z_i - z_rec)**2) + ref_data['c'] * delta_t
+    val = np.sqrt((x_i - x_rec) ** 2 + (y_i - y_rec) ** 2 + (z_i - z_rec) ** 2) + ref_data["c"] * delta_t
 
     return val
 
@@ -70,11 +70,11 @@ def h_prime_func(p_i, xhat_k_km1, var):
     y_i = p_i[1]
     z_i = p_i[2]
 
-    h_den = np.sqrt((x_i - x_rec)**2 + (y_i - y_rec)**2 + (z_i - z_rec)**2)
+    h_den = np.sqrt((x_i - x_rec) ** 2 + (y_i - y_rec) ** 2 + (z_i - z_rec) ** 2)
 
-    if var == 'x':
+    if var == "x":
         h_num = x_rec - x_i
-    elif var == 'y':
+    elif var == "y":
         h_num = y_rec - y_i
     else:  # var == 'z'
         h_num = z_rec - z_i

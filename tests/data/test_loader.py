@@ -1,5 +1,6 @@
 import numpy as np
-from gps.data.loader import load_gps_data, GPSDataset
+
+from gps.data.loader import GPSDataset, load_gps_data
 
 
 def test_load_gps_data_returns_dataset(data_path):
@@ -19,17 +20,11 @@ def test_satellite_data_structure(gps_dataset):
     sat = gps_dataset.satellites[0]
 
     assert hasattr(sat, "satellite_id"), "Satellite should have satellite_id attribute"
-    assert hasattr(sat, "positions_ned"), (
-        "Satellite should have positions_ned attribute"
-    )
+    assert hasattr(sat, "positions_ned"), "Satellite should have positions_ned attribute"
     assert hasattr(sat, "pseudoranges"), "Satellite should have pseudoranges attribute"
 
-    assert sat.positions_ned.shape == (3, 2015), (
-        "Position data should have shape (3, 2015)"
-    )
-    assert sat.pseudoranges.shape == (2015,), (
-        "Pseudorange data should have shape (2015,)"
-    )
+    assert sat.positions_ned.shape == (3, 2015), "Position data should have shape (3, 2015)"
+    assert sat.pseudoranges.shape == (2015,), "Pseudorange data should have shape (2015,)"
 
 
 def test_satellite_access_methods(gps_dataset):
@@ -67,13 +62,9 @@ def test_measurement_parameters(gps_dataset):
     """Test measurement parameters structure."""
     params = gps_dataset.measurement_params
 
-    assert hasattr(params, "range_variance"), (
-        "Params should have range_variance attribute"
-    )
+    assert hasattr(params, "range_variance"), "Params should have range_variance attribute"
     assert hasattr(params, "sample_time"), "Params should have sample_time attribute"
-    assert hasattr(params, "speed_of_light"), (
-        "Params should have speed_of_light attribute"
-    )
+    assert hasattr(params, "speed_of_light"), "Params should have speed_of_light attribute"
 
     assert params.range_variance > 0, "Range variance should be positive"
     assert params.sample_time > 0, "Sample time should be positive"
@@ -85,9 +76,7 @@ def test_ground_truth(gps_dataset):
     assert gps_dataset.ground_truth is not None, "Ground truth should exist"
 
     gt = gps_dataset.ground_truth
-    assert gt.trajectory_ned.shape == (3, 2015), (
-        "Ground truth trajectory should have shape (3, 2015)"
-    )
+    assert gt.trajectory_ned.shape == (3, 2015), "Ground truth trajectory should have shape (3, 2015)"
 
     pos = gt.get_position_at(0)
     assert pos.shape == (3,), "Ground truth position should have shape (3,)"
@@ -99,7 +88,5 @@ def test_nan_handling(gps_dataset):
         nan_indices = np.where(np.isnan(sat.pseudoranges))[0]
         if len(nan_indices) > 0:
             idx = nan_indices[0]
-            assert not sat.is_available_at(idx), (
-                "is_available_at should return False for NaN values"
-            )
+            assert not sat.is_available_at(idx), "is_available_at should return False for NaN values"
             break

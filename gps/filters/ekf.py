@@ -6,11 +6,12 @@ using an Extended Kalman Filter approach.
 """
 
 from dataclasses import dataclass
-from typing import List
+
 import numpy as np
-from scipy.linalg import solve_discrete_are, block_diag
-from gps.utils.measurement_functions import h_prime_func
+from scipy.linalg import block_diag, solve_discrete_are
+
 from gps.data.loader import GPSDataset
+from gps.utils.measurement_functions import h_prime_func
 
 
 @dataclass
@@ -24,9 +25,7 @@ class State:
     delta_t_dot: float = 0.0
 
     def to_vector(self) -> np.ndarray:
-        return np.array(
-            [self.x, self.vx, self.y, self.vy, self.z, self.delta_t, self.delta_t_dot]
-        )
+        return np.array([self.x, self.vx, self.y, self.vy, self.z, self.delta_t, self.delta_t_dot])
 
     @classmethod
     def from_vector(cls, vec: np.ndarray) -> "State":
@@ -82,9 +81,7 @@ class SystemMatrices:
     Q: np.ndarray
 
     @classmethod
-    def create(
-        cls, Ts: float, sigma2_pos: float, PSD_clk: np.ndarray
-    ) -> "SystemMatrices":
+    def create(cls, Ts: float, sigma2_pos: float, PSD_clk: np.ndarray) -> "SystemMatrices":
         # State transition matrix F
         F_x = np.array([[1, Ts], [0, 1]])
         F_y = np.array([[1, Ts], [0, 1]])
@@ -100,14 +97,10 @@ class SystemMatrices:
 
         # Clock process noise covariance
         S_phi, S_f = PSD_clk[0], PSD_clk[1]
-        Q_clk = np.array(
-            [[S_phi * Ts + S_f * (Ts**3) / 3, Ts**2 * S_f], [Ts**2 * S_f, S_f * Ts]]
-        )
+        Q_clk = np.array([[S_phi * Ts + S_f * (Ts**3) / 3, Ts**2 * S_f], [Ts**2 * S_f, S_f * Ts]])
 
         # Process noise
-        process_noise = ProcessNoise(
-            sigma2_x=sigma2_pos, sigma2_y=sigma2_pos, sigma2_z=sigma2_pos, Q_clk=Q_clk
-        )
+        process_noise = ProcessNoise(sigma2_x=sigma2_pos, sigma2_y=sigma2_pos, sigma2_z=sigma2_pos, Q_clk=Q_clk)
         Q = process_noise.to_matrix()
 
         return cls(F=F, G=G, Q=Q)
@@ -121,9 +114,7 @@ class SatelliteMeasurement:
     available: bool
 
     @classmethod
-    def from_satellite_timeseries(
-        cls, satellite, time_idx: int
-    ) -> "SatelliteMeasurement":
+    def from_satellite_timeseries(cls, satellite, time_idx: int) -> "SatelliteMeasurement":
         """Create measurement from SatelliteTimeSeries at specific time index."""
         pseudorange = satellite.get_pseudorange_at(time_idx)
         available = satellite.is_available_at(time_idx)
@@ -150,9 +141,7 @@ class LinearizedMeasurement:
     h_nonlinear: float
 
     @classmethod
-    def compute(
-        cls, measurement: SatelliteMeasurement, state: State, speed_of_light: float
-    ) -> "LinearizedMeasurement":
+    def compute(cls, measurement: SatelliteMeasurement, state: State, speed_of_light: float) -> "LinearizedMeasurement":
         if not measurement.available:
             return cls(y_tilde=0.0, H_row=np.zeros(7), y_actual=0.0, h_nonlinear=0.0)
 
@@ -179,10 +168,7 @@ class LinearizedMeasurement:
         delta_t = state_vec[5]
 
         x_i, y_i, z_i = p_i[0], p_i[1], p_i[2]
-        h_nonlinear = (
-            np.sqrt((x_i - x_rec) ** 2 + (y_i - y_rec) ** 2 + (z_i - z_rec) ** 2)
-            + speed_of_light * delta_t
-        )
+        h_nonlinear = np.sqrt((x_i - x_rec) ** 2 + (y_i - y_rec) ** 2 + (z_i - z_rec) ** 2) + speed_of_light * delta_t
 
         # Linearized measurement
         y_tilde = measurement.pseudorange - h_nonlinear + h_prime @ state_vec
@@ -197,8 +183,8 @@ class LinearizedMeasurement:
 
 @dataclass
 class MeasurementBatch:
-    measurements: List[SatelliteMeasurement]
-    linearized: List[LinearizedMeasurement]
+    measurements: list[SatelliteMeasurement]
+    linearized: list[LinearizedMeasurement]
 
     def get_available_indices(self) -> np.ndarray:
         return np.array([i for i, m in enumerate(self.measurements) if m.available])
@@ -223,9 +209,7 @@ class FilterState:
 
     @classmethod
     def initialize(cls, initial_clock: ClockState) -> "FilterState":
-        state = State(
-            delta_t=initial_clock.delta_t, delta_t_dot=initial_clock.delta_t_dot
-        )
+        state = State(delta_t=initial_clock.delta_t, delta_t_dot=initial_clock.delta_t_dot)
         return cls(state=state, P=None)
 
 
@@ -275,16 +259,11 @@ def extended_kalman_filter(dataset: "GPSDataset", sigma2_pos: float = 0.1) -> di
 
     for n in range(N):
         # Collect satellite measurements
-        measurements = [
-            SatelliteMeasurement.from_satellite_timeseries(sat, n)
-            for sat in dataset.satellites
-        ]
+        measurements = [SatelliteMeasurement.from_satellite_timeseries(sat, n) for sat in dataset.satellites]
 
         # Linearize measurements
         linearized = [
-            LinearizedMeasurement.compute(
-                meas, filter_state.state, dataset.measurement_params.speed_of_light
-            )
+            LinearizedMeasurement.compute(meas, filter_state.state, dataset.measurement_params.speed_of_light)
             for meas in measurements
         ]
 
@@ -303,9 +282,7 @@ def extended_kalman_filter(dataset: "GPSDataset", sigma2_pos: float = 0.1) -> di
         # Initialize P using DARE if not yet initialized
         if filter_state.P is None:
             print("P_k is None - solving DARE")
-            filter_state.P = solve_discrete_are(
-                system.F.T, H_sub.T, system.G @ system.Q @ system.G.T, R_k_sub
-            )
+            filter_state.P = solve_discrete_are(system.F.T, H_sub.T, system.G @ system.Q @ system.G.T, R_k_sub)
 
         # Innovation covariance
         R_ek = H_sub @ filter_state.P @ H_sub.T + R_k_sub
@@ -314,11 +291,7 @@ def extended_kalman_filter(dataset: "GPSDataset", sigma2_pos: float = 0.1) -> di
         K_k = system.F @ filter_state.P @ H_sub.T @ np.linalg.inv(R_ek)
 
         # Covariance update
-        P_kp1 = (
-            system.F @ filter_state.P @ system.F.T
-            + system.G @ system.Q @ system.G.T
-            - K_k @ R_ek @ K_k.T
-        )
+        P_kp1 = system.F @ filter_state.P @ system.F.T + system.G @ system.Q @ system.G.T - K_k @ R_ek @ K_k.T
 
         # State update
         state_vec = filter_state.state.to_vector()

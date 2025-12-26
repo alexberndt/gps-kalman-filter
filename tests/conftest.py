@@ -1,7 +1,9 @@
 """Pytest configuration and fixtures."""
 
-import pytest
 from pathlib import Path
+
+import pytest
+
 from gps.data.loader import load_gps_data
 
 

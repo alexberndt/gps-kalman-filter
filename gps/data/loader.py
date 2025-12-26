@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import List, Optional
+
 import numpy as np
 from scipy.io import loadmat
 
@@ -9,9 +9,7 @@ class SatelliteTimeSeries:
     """Time series data for a single satellite."""
 
     satellite_id: str
-    positions_ned: (
-        np.ndarray
-    )  # Shape (3, N): satellite positions over time in NED coordinates
+    positions_ned: np.ndarray  # Shape (3, N): satellite positions over time in NED coordinates
     pseudoranges: np.ndarray  # Shape (N,): pseudorange measurements over time
 
     @property
@@ -88,10 +86,10 @@ class GroundTruth:
 class GPSDataset:
     """Complete GPS dataset with all satellite and reference data."""
 
-    satellites: List[SatelliteTimeSeries]
+    satellites: list[SatelliteTimeSeries]
     clock_params: ClockParameters
     measurement_params: MeasurementParameters
-    ground_truth: Optional[GroundTruth] = None
+    ground_truth: GroundTruth | None = None
 
     @property
     def num_satellites(self) -> int:

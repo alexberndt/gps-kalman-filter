@@ -1,6 +1,7 @@
 import argparse
 import sys
 from pathlib import Path
+
 import numpy as np
 
 from gps.data.loader import load_gps_data
@@ -9,9 +10,7 @@ from gps.filters.nl_ls import nonlinear_least_squares
 
 
 def main():
-    parser = argparse.ArgumentParser(
-        description="GPS position estimation using Kalman filtering"
-    )
+    parser = argparse.ArgumentParser(description="GPS position estimation using Kalman filtering")
     parser.add_argument(
         "data_path",
         type=str,
@@ -19,9 +18,7 @@ def main():
         default=None,
         help="Path to GPSdata.mat file (default: ./data/GPSdata.mat)",
     )
-    parser.add_argument(
-        "--plot", action="store_true", help="Generate and display plots"
-    )
+    parser.add_argument("--plot", action="store_true", help="Generate and display plots")
     parser.add_argument(
         "--sigma",
         type=float,
@@ -44,10 +41,7 @@ def main():
     args = parser.parse_args()
 
     # Determine data path
-    if args.data_path is None:
-        data_path = Path("data") / "GPSdata.mat"
-    else:
-        data_path = Path(args.data_path)
+    data_path = Path("data") / "GPSdata.mat" if args.data_path is None else Path(args.data_path)
 
     if not data_path.exists():
         print(f"Error: Data file not found: {data_path}", file=sys.stderr)
@@ -56,9 +50,7 @@ def main():
     # Load data
     print(f"Loading GPS data from {data_path}...")
     dataset = load_gps_data(str(data_path))
-    print(
-        f"Loaded {dataset.num_satellites} satellites, {dataset.num_timesteps} timesteps"
-    )
+    print(f"Loaded {dataset.num_satellites} satellites, {dataset.num_timesteps} timesteps")
 
     # Run filters
     results = {}
@@ -81,8 +73,6 @@ def main():
             if not args.plot:
                 # Non-interactive backend if only saving
                 matplotlib.use("Agg")
-            import matplotlib.pyplot as plt
-            from mpl_toolkits.mplot3d import Axes3D
 
             plot_dir = Path(args.save_plots) if args.save_plots else Path("plots")
             plot_dir.mkdir(exist_ok=True)
@@ -90,9 +80,7 @@ def main():
             generate_plots(results, dataset, plot_dir, show=args.plot)
 
         except ImportError:
-            print(
-                "\nWarning: matplotlib not installed. Install with: uv pip install matplotlib"
-            )
+            print("\nWarning: matplotlib not installed. Install with: uv pip install matplotlib")
             print("Or install plot extras: uv pip install -e '.[plot]'")
 
     return 0

@@ -6,6 +6,7 @@ using a nonlinear least squares approach.
 """
 
 import numpy as np
+
 from gps.data.loader import GPSDataset
 
 

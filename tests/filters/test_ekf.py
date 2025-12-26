@@ -1,4 +1,5 @@
 import numpy as np
+
 from gps.filters.ekf import extended_kalman_filter
 
 
@@ -15,9 +16,7 @@ def test_ekf_output_dimensions(gps_dataset, small_sigma):
     assert result["x_h"].shape == (7, gps_dataset.num_timesteps), (
         "State should be (7, N): [x, vx, y, vy, z, delta_t, delta_t_dot]"
     )
-    assert result["P"].shape == (7, 7, gps_dataset.num_timesteps), (
-        "Covariance should be (7, 7, N)"
-    )
+    assert result["P"].shape == (7, 7, gps_dataset.num_timesteps), "Covariance should be (7, 7, N)"
 
 
 def test_ekf_produces_valid_estimates(gps_dataset, small_sigma):
@@ -37,9 +36,7 @@ def test_ekf_covariance_positive_semidefinite(gps_dataset, small_sigma):
     for i in [0, len(P[0, 0]) // 2, len(P[0, 0]) - 1]:
         P_i = P[:, :, i]
         eigenvalues = np.linalg.eigvals(P_i)
-        assert np.all(eigenvalues >= -1e-10), (
-            f"Covariance has negative eigenvalues at timestep {i}"
-        )
+        assert np.all(eigenvalues >= -1e-10), f"Covariance has negative eigenvalues at timestep {i}"
 
 
 def test_ekf_sigma_parameter_effect(gps_dataset, small_sigma, large_sigma):
