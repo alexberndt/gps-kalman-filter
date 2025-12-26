@@ -125,12 +125,6 @@ dependencies = [
     { name = "scipy" },
 ]
 
-[package.optional-dependencies]
-dev = [
-    { name = "pytest" },
-    { name = "ruff" },
-]
-
 [package.dev-dependencies]
 dev = [
     { name = "pre-commit" },
@@ -143,11 +137,8 @@ requires-dist = [
     { name = "bokeh", specifier = ">=3.8.1" },
     { name = "numpy", specifier = ">=2.4.0" },
     { name = "plotly", specifier = ">=6.5.0" },
-    { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.0.0" },
-    { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.14.10" },
     { name = "scipy", specifier = ">=1.16.3" },
 ]
-provides-extras = ["dev"]
 
 [package.metadata.requires-dev]
 dev = [

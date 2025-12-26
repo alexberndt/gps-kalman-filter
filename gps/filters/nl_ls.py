@@ -10,7 +10,7 @@ import numpy as np
 from gps.data.loader import GPSDataset
 
 
-def nonlinear_least_squares(dataset: "GPSDataset") -> dict:
+def nonlinear_least_squares(dataset: GPSDataset) -> dict:
     """
     Calculate GPS position using nonlinear least squares.
 

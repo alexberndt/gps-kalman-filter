@@ -213,7 +213,7 @@ class FilterState:
         return cls(state=state, P=None)
 
 
-def extended_kalman_filter(dataset: "GPSDataset", sigma2_pos: float = 0.1) -> dict:
+def extended_kalman_filter(dataset: GPSDataset, sigma2_pos: float = 0.1) -> dict:
     """
     Calculate GPS position using Extended Kalman Filter.
 
